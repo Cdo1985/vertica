@@ -3,33 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shorts Master: 9:16 Fix</title>
+    <title>Shorts Master: GitHub Edition</title>
+    <script src="https://cdn.jsdelivr.net/gh/gzuidhof/coi-serviceworker@latest/coi-serviceworker.min.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; max-width: 650px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; }
+        body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; }
         .panel { background: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
         h1 { color: #ff0000; text-align: center; }
         .section { margin-bottom: 20px; padding: 15px; background: #252525; border-radius: 10px; border-left: 4px solid #ff0000; }
-        input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; }
-        button { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; cursor: pointer; }
+        button { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-convert { background: #ff0000; color: white; }
         .btn-download { background: #00ff00; color: #000; display: none; }
-        .btn-copy { background: #3ea6ff; color: #000; display: none; }
-        #status { text-align: center; margin: 15px 0; color: #00ff00; font-family: monospace; font-size: 13px; min-height: 20px; }
-        .preview { display: none; text-align: center; margin-top: 20px; }
-        video { width: 180px; border: 3px solid #333; border-radius: 8px; background: #000; }
+        #status { text-align: center; margin: 15px 0; color: #00ff00; font-family: monospace; font-size: 13px; }
+        .preview { display: none; text-align: center; margin-top: 20px; border-top: 1px solid #444; padding-top: 20px; }
+        video { width: 180px; border: 3px solid #333; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="panel">
     <h1>Shorts Master</h1>
+    <p style="text-align:center; font-size: 12px; color: #888;">GitHub Pages Compatibility Active</p>
     
     <div class="section">
         <label>1. Select Video</label>
         <input type="file" id="videoInput" accept="video/*">
         
-        <label>2. Crop Style</label>
+        <label>2. Style</label>
         <select id="modeSelect">
             <option value="crop">9:16 Center Crop</option>
             <option value="fit">9:16 Letterbox</option>
@@ -38,12 +39,11 @@
         <button id="convertBtn" class="btn-convert">CONVERT FIRST 10s</button>
     </div>
 
-    <div id="status">Status: Waiting...</div>
+    <div id="status">Status: Waiting for video...</div>
 
     <div class="preview" id="previewArea">
         <video id="outputVideo" controls></video>
-        <button id="downloadBtn" class="btn-download">💾 DOWNLOAD FINISHED FILE</button>
-        <button id="copyBtn" class="btn-copy">📋 COPY STUDIO UPLOAD SCRIPT</button>
+        <button id="downloadBtn" class="btn-download">💾 DOWNLOAD .MP4</button>
     </div>
 </div>
 
@@ -54,7 +54,6 @@
 
     const convertBtn = document.getElementById('convertBtn');
     const downloadBtn = document.getElementById('downloadBtn');
-    const copyBtn = document.getElementById('copyBtn');
     const status = document.getElementById('status');
     const previewArea = document.getElementById('previewArea');
     const outputVideo = document.getElementById('outputVideo');
@@ -63,64 +62,46 @@
         const file = document.getElementById('videoInput').files[0];
         if (!file) return alert("Select a file!");
 
-        // Reset UI
         convertBtn.disabled = true;
-        previewArea.style.display = "none";
-        status.innerText = "⚡ Loading FFmpeg...";
+        status.innerText = "⚡ Initializing Engine (GitHub Patch)...";
 
-        if (!ffmpeg.isLoaded()) await ffmpeg.load();
-
-        status.innerText = "🎬 Rendering 9:16 Video (10s)...";
-        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
-
-        const mode = document.getElementById('modeSelect').value;
-        const filter = (mode === 'crop') 
-            ? 'crop=ih*(9/16):ih,setsar=1' 
-            : 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
-
-        // We use libx264 and ensure a standard mp4 container
-        await ffmpeg.run('-i', 'input.mp4', '-t', '10', '-vf', filter, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', 'output.mp4');
-
-        status.innerText = "✨ Done! Rendering Preview...";
-
-        // Retrieve the data from FFmpeg's virtual FS
         try {
+            if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+            status.innerText = "🎬 Processing (10s Trim)...";
+            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+
+            const mode = document.getElementById('modeSelect').value;
+            const filter = (mode === 'crop') 
+                ? 'crop=ih*(9/16):ih,setsar=1' 
+                : 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+
+            await ffmpeg.run('-i', 'input.mp4', '-t', '10', '-vf', filter, '-c:v', 'libx264', '-preset', 'ultrafast', 'output.mp4');
+
             const data = ffmpeg.FS('readFile', 'output.mp4');
             const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
             
-            // Clear old URL if it exists to save memory
             if (finalVideoBlobUrl) URL.revokeObjectURL(finalVideoBlobUrl);
-            
             finalVideoBlobUrl = URL.createObjectURL(videoBlob);
 
             outputVideo.src = finalVideoBlobUrl;
             previewArea.style.display = "block";
             downloadBtn.style.display = "block";
-            copyBtn.style.display = "block";
-            status.innerText = "READY FOR DOWNLOAD";
-        } catch (e) {
-            status.innerText = "❌ Error reading file: " + e.message;
+            status.innerText = "✅ DONE!";
+        } catch (err) {
+            status.innerText = "❌ ERROR: " + err.message;
+            console.error(err);
         }
-        
         convertBtn.disabled = false;
     });
 
-    // Forced Download Trigger
     downloadBtn.addEventListener('click', () => {
-        if (!finalVideoBlobUrl) return;
         const a = document.createElement('a');
         a.href = finalVideoBlobUrl;
-        a.download = "my_youtube_short.mp4";
+        a.download = "youtube_short.mp4";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-    });
-
-    // Upload Script Copy
-    copyBtn.addEventListener('click', () => {
-        const script = `(async function(){const i=document.createElement("input");i.type="file",i.accept="video/*",i.onchange=async e=>{const t=e.target.files[0];if(!t)return;const n=document.querySelector('input[type="file"][name="Filedata"]');if(n){const e=new DataTransfer;e.items.add(t),n.files=e.files,n.dispatchEvent(new Event("change",{bubbles:!0})),alert("✅ Uploading!")}else alert("❌ Open the YouTube 'Upload Videos' popup first!")},i.click()})();`;
-        navigator.clipboard.writeText(script);
-        status.innerText = "Copied! Paste into YT Studio Console.";
     });
 </script>
 
