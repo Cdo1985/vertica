@@ -16,7 +16,10 @@ if (typeof window === "undefined") {
     });
 } else {
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register(window.location.href).then((registration) => {
+        // Automatically find the correct path for GitHub Pages subfolders
+        const path = window.location.pathname.endsWith("/") ? window.location.pathname : window.location.pathname + "/";
+        navigator.serviceWorker.register(window.location.href, { scope: "./" }).then((registration) => {
+            registration.addEventListener("updatefound", () => window.location.reload());
             if (registration.active && !navigator.serviceWorker.controller) {
                 window.location.reload();
             }
