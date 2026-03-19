@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shorts Master: GitHub Edition</title>
-    <script src="https://cdn.jsdelivr.net/gh/gzuidhof/coi-serviceworker@latest/coi-serviceworker.min.js"></script>
+    <title>Shorts Master: GitHub Fix</title>
+    <script src="coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; }
         .panel { background: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
         h1 { color: #ff0000; text-align: center; }
         .section { margin-bottom: 20px; padding: 15px; background: #252525; border-radius: 10px; border-left: 4px solid #ff0000; }
-        input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; cursor: pointer; }
+        input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; }
         button { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-convert { background: #ff0000; color: white; }
         .btn-download { background: #00ff00; color: #000; display: none; }
         #status { text-align: center; margin: 15px 0; color: #00ff00; font-family: monospace; font-size: 13px; }
-        .preview { display: none; text-align: center; margin-top: 20px; border-top: 1px solid #444; padding-top: 20px; }
+        .preview { display: none; text-align: center; margin: 20px 0; }
         video { width: 180px; border: 3px solid #333; border-radius: 8px; }
     </style>
 </head>
@@ -24,7 +24,7 @@
 
 <div class="panel">
     <h1>Shorts Master</h1>
-    <p style="text-align:center; font-size: 12px; color: #888;">GitHub Pages Compatibility Active</p>
+    <p style="text-align:center; font-size: 11px; color: #888;">SharedArrayBuffer Patch Enabled</p>
     
     <div class="section">
         <label>1. Select Video</label>
@@ -63,12 +63,12 @@
         if (!file) return alert("Select a file!");
 
         convertBtn.disabled = true;
-        status.innerText = "⚡ Initializing Engine (GitHub Patch)...";
+        status.innerText = "⚡ Initializing Engine...";
 
         try {
             if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-            status.innerText = "🎬 Processing (10s Trim)...";
+            status.innerText = "🎬 Rendering (10s Trim)...";
             ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
             const mode = document.getElementById('modeSelect').value;
@@ -87,7 +87,7 @@
             outputVideo.src = finalVideoBlobUrl;
             previewArea.style.display = "block";
             downloadBtn.style.display = "block";
-            status.innerText = "✅ DONE!";
+            status.innerText = "✅ SUCCESS!";
         } catch (err) {
             status.innerText = "❌ ERROR: " + err.message;
             console.error(err);
@@ -98,7 +98,7 @@
     downloadBtn.addEventListener('click', () => {
         const a = document.createElement('a');
         a.href = finalVideoBlobUrl;
-        a.download = "youtube_short.mp4";
+        a.download = "my_short.mp4";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
