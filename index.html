@@ -3,47 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shorts Master: GitHub Fix</title>
+    <title>Shorts Master: GitHub Edition</title>
     <script src="coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; }
         .panel { background: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
-        h1 { color: #ff0000; text-align: center; }
+        h1 { color: #ff0000; text-align: center; margin-bottom: 5px; }
+        
+        /* Spinner Styles */
+        .spinner { display: none; width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .system-check { font-size: 12px; text-align: center; margin-bottom: 20px; padding: 10px; border-radius: 5px; background: #000; }
+        .check-pass { color: #00ff00; }
+        .check-fail { color: #ff4444; }
+
         .section { margin-bottom: 20px; padding: 15px; background: #252525; border-radius: 10px; border-left: 4px solid #ff0000; }
         input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; }
+        
         button { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-convert { background: #ff0000; color: white; }
         .btn-download { background: #00ff00; color: #000; display: none; }
+        
         #status { text-align: center; margin: 15px 0; color: #00ff00; font-family: monospace; font-size: 13px; }
-        .preview { display: none; text-align: center; margin: 20px 0; }
-        video { width: 180px; border: 3px solid #333; border-radius: 8px; }
+        .preview { display: none; text-align: center; margin: 20px 0; border-top: 1px solid #444; padding-top: 20px; }
+        video { width: 180px; border: 3px solid #333; border-radius: 8px; background: #000; }
     </style>
 </head>
 <body>
 
 <div class="panel">
     <h1>Shorts Master</h1>
-    <p style="text-align:center; font-size: 11px; color: #888;">SharedArrayBuffer Patch Enabled</p>
     
-    <div class="section">
-        <label>1. Select Video</label>
-        <input type="file" id="videoInput" accept="video/*">
-        
-        <label>2. Style</label>
-        <select id="modeSelect">
-            <option value="crop">9:16 Center Crop</option>
-            <option value="fit">9:16 Letterbox</option>
-        </select>
-        
-        <button id="convertBtn" class="btn-convert">CONVERT FIRST 10s</button>
+    <div class="system-check" id="sysCheck">
+        Checking Security Headers...
     </div>
 
-    <div id="status">Status: Waiting for video...</div>
+    <div id="mainUI" style="opacity: 0.3; pointer-events: none;">
+        <div class="section">
+            <label>1. Select Video</label>
+            <input type="file" id="videoInput" accept="video/*">
+            
+            <label>2. Aspect Style</label>
+            <select id="modeSelect">
+                <option value="crop">9:16 Center Crop</option>
+                <option value="fit">9:16 Letterbox</option>
+            </select>
+            
+            <button id="convertBtn" class="btn-convert">CONVERT FIRST 10s</button>
+        </div>
 
-    <div class="preview" id="previewArea">
-        <video id="outputVideo" controls></video>
-        <button id="downloadBtn" class="btn-download">💾 DOWNLOAD .MP4</button>
+        <div id="loadingSpinner" class="spinner"></div>
+        <div id="status">Status: Initializing...</div>
+
+        <div class="preview" id="previewArea">
+            <video id="outputVideo" controls></video>
+            <button id="downloadBtn" class="btn-download">💾 DOWNLOAD .MP4</button>
+        </div>
     </div>
 </div>
 
@@ -57,18 +74,36 @@
     const status = document.getElementById('status');
     const previewArea = document.getElementById('previewArea');
     const outputVideo = document.getElementById('outputVideo');
+    const spinner = document.getElementById('loadingSpinner');
+    const sysCheck = document.getElementById('sysCheck');
+    const mainUI = document.getElementById('mainUI');
 
+    // --- SECURITY HEADER CHECK ---
+    window.addEventListener('load', () => {
+        if (window.crossOriginIsolated) {
+            sysCheck.innerHTML = 'Security: <span class="check-pass">ONLINE ✅ (Ready to Edit)</span>';
+            mainUI.style.opacity = "1";
+            mainUI.style.pointer_events = "auto";
+            status.innerText = "Status: Ready";
+        } else {
+            sysCheck.innerHTML = 'Security: <span class="check-fail">OFFLINE ❌ (Refreshing Patch...)</span>';
+            status.innerText = "Status: Waiting for Security Patch...";
+        }
+    });
+
+    // --- CONVERSION LOGIC ---
     convertBtn.addEventListener('click', async () => {
         const file = document.getElementById('videoInput').files[0];
         if (!file) return alert("Select a file!");
 
         convertBtn.disabled = true;
-        status.innerText = "⚡ Initializing Engine...";
+        spinner.style.display = "block";
+        status.innerText = "⚡ Loading Video Engine...";
 
         try {
             if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-            status.innerText = "🎬 Rendering (10s Trim)...";
+            status.innerText = "🎬 Rendering Vertical Video...";
             ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
             const mode = document.getElementById('modeSelect').value;
@@ -87,18 +122,20 @@
             outputVideo.src = finalVideoBlobUrl;
             previewArea.style.display = "block";
             downloadBtn.style.display = "block";
-            status.innerText = "✅ SUCCESS!";
+            status.innerText = "✅ RENDER SUCCESS!";
         } catch (err) {
             status.innerText = "❌ ERROR: " + err.message;
             console.error(err);
+        } finally {
+            spinner.style.display = "none";
+            convertBtn.disabled = false;
         }
-        convertBtn.disabled = false;
     });
 
     downloadBtn.addEventListener('click', () => {
         const a = document.createElement('a');
         a.href = finalVideoBlobUrl;
-        a.download = "my_short.mp4";
+        a.download = "short_video.mp4";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
