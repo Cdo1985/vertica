@@ -10,19 +10,13 @@ if (typeof window === "undefined") {
                 const newHeaders = new Headers(response.headers);
                 newHeaders.set("Cross-Origin-Embedder-Policy", "require-corp");
                 newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
-                return new Promise((resolve) => {
-                    resolve(new Response(response.body, { status: response.status, statusText: response.statusText, headers: newHeaders }));
-                });
+                return new Response(response.body, { status: response.status, statusText: response.statusText, headers: newHeaders });
             }).catch((e) => console.error(e))
         );
     });
 } else {
-    const script = document.currentScript;
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register(window.location.href).then((registration) => {
-            registration.addEventListener("updatefound", () => {
-                window.location.reload();
-            });
             if (registration.active && !navigator.serviceWorker.controller) {
                 window.location.reload();
             }
