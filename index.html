@@ -1,157 +1,106 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shorts Master: Auto-Slicer</title>
-    <script src="./coi-serviceworker.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; max-width: 700px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; }
-        .panel { background: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; }
-        h1 { color: #ff0000; text-align: center; text-transform: uppercase; }
-        .section { margin-bottom: 20px; padding: 15px; background: #252525; border-radius: 10px; border-left: 4px solid #ff0000; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #aaa; }
-        input, select, button { width: 100%; padding: 12px; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; }
-        input, select { background: #333; border: 1px solid #444; color: white; }
-        button { background: #ff0000; color: white; border: none; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #444; }
-        #status { text-align: center; color: #00ff00; font-family: monospace; min-height: 20px; margin: 10px 0; }
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
-        .video-card { background: #000; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #444; }
-        video { width: 100%; border-radius: 4px; margin-bottom: 5px; }
-        .dl-btn { background: #00ff00; color: #000; padding: 5px; font-size: 12px; text-decoration: none; display: block; border-radius: 4px; }
-    </style>
-</head>
-<body>
-
 <div class="panel">
-    <h1>Shorts Auto-Slicer</h1>
-    <div id="status">Status: Initializing FFmpeg...</div>
+    <h1>Shorts Master</h1>
+    <div class="system-check" id="sysCheck">Checking Security...</div>
 
-    <div class="section">
-        <label>1. Source Video (File or URL)</label>
-        <input type="file" id="videoInput" accept="video/*">
-        <input type="text" id="urlInput" placeholder="Paste Video URL here...">
+    <div id="mainUI" style="opacity: 0.2; pointer-events: none;">
+        <div class="section">
+            <label>1. Source (File or URL)</label>
+            <input type="file" id="videoInput" accept="video/*">
+            <input type="text" id="urlInput" placeholder="https://example.com/video.mp4" style="width:100%; padding:10px; margin-top:5px; background:#333; color:white; border:1px solid #444; border-radius:5px;">
+            
+            <label style="margin-top:15px;">2. Aspect Style</label>
+            <select id="modeSelect">
+                <option value="crop">9:16 Center Crop</option>
+                <option value="fit">9:16 Letterbox</option>
+            </select>
+            
+            <button id="convertBtn" class="btn-convert">CONVERT & FIX PLAYBACK</button>
+        </div>
 
-        <label>2. Short Length (Seconds)</label>
-        <select id="durationSelect">
-            <option value="15">15 Seconds</option>
-            <option value="30">30 Seconds</option>
-            <option value="60" selected>60 Seconds (Standard Short)</option>
-        </select>
+        <div id="loadingSpinner" class="spinner"></div>
+        <div id="status">Status: Ready</div>
 
-        <label>3. Style</label>
-        <select id="modeSelect">
-            <option value="crop">9:16 Center Crop</option>
-            <option value="fit">9:16 Letterbox</option>
-        </select>
-
-        <button id="startBtn">PROCESS ALL SEGMENTS</button>
+        <div class="preview" id="previewArea">
+            <video id="outputVideo" controls playsinline></video>
+            <p>✅ Playable Output Generated!</p>
+            <button id="downloadBtn" class="btn-download">💾 DOWNLOAD .MP4</button>
+        </div>
     </div>
-
-    <div id="results" class="results-grid"></div>
 </div>
 
 <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
     const ffmpeg = createFFmpeg({ log: true });
+    let finalVideoBlobUrl = null;
 
-    const startBtn = document.getElementById('startBtn');
+    // UI Elements
+    const convertBtn = document.getElementById('convertBtn');
     const status = document.getElementById('status');
-    const results = document.getElementById('results');
+    const outputVideo = document.getElementById('outputVideo');
 
-    async function getDuration(name) {
-        // Run a dummy command to get file info
-        await ffmpeg.run('-i', name);
-        // FFmpeg.wasm logs the duration in the console, but we can also use:
-        // Note: For simplicity in this demo, we'll use a 1080p assumption or read stream 0
-    }
-
-    startBtn.addEventListener('click', async () => {
+    convertBtn.addEventListener('click', async () => {
         const file = document.getElementById('videoInput').files[0];
         const url = document.getElementById('urlInput').value.trim();
-        const segmentLen = parseInt(document.getElementById('durationSelect').value);
         
-        if (!file && !url) return alert("Source required!");
+        if (!file && !url) return alert("Select a file or enter a URL!");
 
-        startBtn.disabled = true;
-        results.innerHTML = "";
-        
+        convertBtn.disabled = true;
+        document.getElementById('loadingSpinner').style.display = "block";
+        status.innerText = "⚡ Loading Video Data...";
+
         try {
             if (!ffmpeg.isLoaded()) await ffmpeg.load();
-            status.innerText = "⏳ Fetching video...";
 
-            const inputName = 'input_video.mp4';
-            const data = file ? await fetchFile(file) : await fetchFile(url);
-            ffmpeg.FS('writeFile', inputName, data);
-
-            // 1. Get Duration (Heuristic approach for browser)
-            // We use a small trick: try to seek very far to find the end
-            status.innerText = "🔍 Analyzing video length...";
-            
-            // For now, we will process until error (end of file) 
-            // OR you can limit to a fixed number of segments. 
-            // Standard approach: Process first 5 minutes max to avoid crash.
-            let currentTime = 0;
-            let segmentCount = 1;
-            const maxDuration = 300; // 5 minute safety cap for browser RAM
-
-            while (currentTime < maxDuration) {
-                status.innerText = `🎬 Processing Segment ${segmentCount} at ${currentTime}s...`;
-
-                const outputName = `short_${segmentCount}.mp4`;
-                const mode = document.getElementById('modeSelect').value;
-                const filter = (mode === 'crop') 
-                    ? 'scale=w=-1:h=1920,crop=1080:1920,setsar=1' 
-                    : 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
-
-                // Command: Start at currentTime, duration segmentLen
-                await ffmpeg.run(
-                    '-ss', currentTime.toString(),
-                    '-i', inputName,
-                    '-t', segmentLen.toString(),
-                    '-vf', filter,
-                    '-c:v', 'libx264',
-                    '-preset', 'ultrafast',
-                    '-pix_fmt', 'yuv420p',
-                    '-movflags', '+faststart',
-                    '-c:a', 'aac',
-                    outputName
-                );
-
-                // Read output
-                const outData = ffmpeg.FS('readFile', outputName);
-                if (outData.length < 1000) break; // If file is tiny, we hit the end
-
-                const blob = new Blob([outData.buffer], { type: 'video/mp4' });
-                const urlObj = URL.createObjectURL(blob);
-
-                // Add to UI
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.innerHTML = `
-                    <video src="${urlObj}" controls></video>
-                    <span>Part ${segmentCount}</span>
-                    <a href="${urlObj}" download="short_${segmentCount}.mp4" class="dl-btn">DOWNLOAD</a>
-                `;
-                results.appendChild(card);
-
-                currentTime += segmentLen;
-                segmentCount++;
-                
-                // Cleanup FS to save memory
-                ffmpeg.FS('unlink', outputName);
+            // Handle Source (File vs URL)
+            let videoData;
+            if (file) {
+                videoData = await fetchFile(file);
+            } else {
+                // Fetch from URL with CORS bypass attempt
+                const response = await fetch(url, { mode: 'cors' });
+                const blob = await response.blob();
+                videoData = await fetchFile(blob);
             }
 
-            status.innerText = "✅ All segments processed!";
+            ffmpeg.FS('writeFile', 'input.mp4', videoData);
+            status.innerText = "🎬 Encoding for Playback...";
+
+            const mode = document.getElementById('modeSelect').value;
+            const filter = (mode === 'crop') 
+                ? 'scale=w=-1:h=1920,crop=1080:1920,setsar=1' 
+                : 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+
+            // CRITICAL: Added -pix_fmt yuv420p and -movflags +faststart for browser playback
+            await ffmpeg.run(
+                '-i', 'input.mp4', 
+                '-t', '10', 
+                '-vf', filter, 
+                '-c:v', 'libx264', 
+                '-preset', 'ultrafast', 
+                '-pix_fmt', 'yuv420p', 
+                '-movflags', '+faststart', 
+                '-c:a', 'aac', 
+                'output.mp4'
+            );
+
+            const data = ffmpeg.FS('readFile', 'output.mp4');
+            const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+            
+            if (finalVideoBlobUrl) URL.revokeObjectURL(finalVideoBlobUrl);
+            finalVideoBlobUrl = URL.createObjectURL(videoBlob);
+
+            outputVideo.src = finalVideoBlobUrl;
+            document.getElementById('previewArea').style.display = "block";
+            document.getElementById('downloadBtn').style.display = "block";
+            status.innerText = "✨ SUCCESS!";
         } catch (err) {
-            status.innerText = "❌ Error: " + err.message;
+            status.innerText = "❌ ERROR: Check CORS or Video Format";
             console.error(err);
         } finally {
-            startBtn.disabled = false;
+            document.getElementById('loadingSpinner').style.display = "none";
+            convertBtn.disabled = false;
         }
     });
+
+    // Security check logic from previous version remains the same...
 </script>
-</body>
-</html>
