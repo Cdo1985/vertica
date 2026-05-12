@@ -4,30 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shorts Master: 3030 Edition</title>
+    <!-- 1. The Service Worker loader must be first -->
     <script src="./coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 30px auto; padding: 20px; background-color: #0f0f0f; color: white; line-height: 1.6; }
         .panel { background: #1e1e1e; padding: 25px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
         h1 { color: #ff0000; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
-        
         .spinner { display: none; width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
         .system-check { font-size: 13px; text-align: center; margin-bottom: 20px; padding: 12px; border-radius: 8px; background: #000; border: 1px solid #444; }
         .check-pass { color: #00ff00; font-weight: bold; }
         .check-fail { color: #ff4444; font-weight: bold; }
-
         .section { margin-bottom: 20px; padding: 15px; background: #252525; border-radius: 10px; border-left: 4px solid #ff0000; }
         label { display: block; margin-bottom: 10px; font-weight: bold; color: #aaa; }
         input[type="file"], select { width: 100%; padding: 12px; background: #333; border: 1px solid #444; border-radius: 6px; color: white; margin-bottom: 10px; box-sizing: border-box; }
-        
         button { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
         .btn-convert { background: #ff0000; color: white; }
         .btn-convert:disabled { background: #444; cursor: not-allowed; }
         .btn-download { background: #00ff00; color: #000; display: none; }
-        .btn-retry { background: #3ea6ff; color: #000; font-size: 12px; padding: 8px; margin-top: 5px; }
-        
         #status { text-align: center; margin: 15px 0; color: #00ff00; font-family: 'Courier New', monospace; font-size: 13px; }
         .preview { display: none; text-align: center; margin: 20px 0; border-top: 1px solid #444; padding-top: 20px; }
         video { width: 100%; max-width: 200px; border: 3px solid #333; border-radius: 8px; background: #000; }
@@ -38,9 +33,7 @@
 <div class="panel">
     <h1>Shorts Master</h1>
     
-    <div class="system-check" id="sysCheck">
-        Checking Security...
-    </div>
+    <div class="system-check" id="sysCheck">Checking Security...</div>
 
     <div id="mainUI" style="opacity: 0.2; pointer-events: none;">
         <div class="section">
@@ -81,7 +74,7 @@
     const sysCheck = document.getElementById('sysCheck');
     const mainUI = document.getElementById('mainUI');
 
-    // Security Check
+    // Security Check for Cross-Origin Isolation
     function checkIsolation() {
         if (window.crossOriginIsolated) {
             sysCheck.innerHTML = 'Security: <span class="check-pass">ONLINE ✅</span>';
@@ -89,17 +82,13 @@
             mainUI.style.pointerEvents = "auto";
             status.innerText = "Status: Ready";
         } else {
-            sysCheck.innerHTML = `
-                Security: <span class="check-fail">OFFLINE ❌</span><br>
-                <button class="btn-retry" onclick="location.reload()">FORCE RELOAD PATCH</button>
-            `;
-            status.innerText = "Status: Waiting for security patch...";
+            sysCheck.innerHTML = 'Security: <span class="check-fail">OFFLINE ❌</span><br>Reloading required...';
+            status.innerText = "Status: Waiting for isolation...";
         }
     }
 
     window.addEventListener('load', checkIsolation);
-    // Re-check after 2 seconds in case the worker was slow
-    setTimeout(checkIsolation, 2000);
+    setTimeout(checkIsolation, 1000);
 
     convertBtn.addEventListener('click', async () => {
         const file = document.getElementById('videoInput').files[0];
@@ -112,12 +101,16 @@
         try {
             if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-            status.innerText = "🎬 Rendering... (This takes 10-30s)";
+            status.innerText = "🎬 Rendering... (Approx 10-20s)";
             ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
             const mode = document.getElementById('modeSelect').value;
+            
+            // Logic: 
+            // Crop: Scales height to 1920 then crops width to 1080.
+            // Fit: Scales to fit 1080x1920 with black padding.
             const filter = (mode === 'crop') 
-                ? 'crop=ih*(9/16):ih,setsar=1' 
+                ? 'scale=w=-1:h=1920,crop=1080:1920,setsar=1' 
                 : 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
 
             await ffmpeg.run('-i', 'input.mp4', '-t', '10', '-vf', filter, '-c:v', 'libx264', '-preset', 'ultrafast', 'output.mp4');
@@ -144,12 +137,11 @@
     downloadBtn.addEventListener('click', () => {
         const a = document.createElement('a');
         a.href = finalVideoBlobUrl;
-        a.download = "my_vertical_short.mp4";
+        a.download = "short_output.mp4";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
     });
 </script>
-
 </body>
 </html>
