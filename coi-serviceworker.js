@@ -17,7 +17,10 @@ if (typeof window === "undefined") {
 } else {
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("./coi-serviceworker.js").then((registration) => {
-            registration.addEventListener("updatefound", () => window.location.reload());
+            registration.addEventListener("updatefound", () => {
+                // When the worker is first registered, the page MUST reload to apply headers
+                window.location.reload();
+            });
             if (registration.active && !navigator.serviceWorker.controller) {
                 window.location.reload();
             }
